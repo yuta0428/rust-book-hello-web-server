@@ -1,6 +1,7 @@
 use std::io::prelude::*; // ストリームから読み書きさせてくれるトレイト
 use std::net::TcpStream;
 use std::net::TcpListener;
+use std::fs::File;
 
 fn main() {
     // 入力ストリームをリッスンし、ストリームを受け付けた時にメッセージを出力する
@@ -24,7 +25,12 @@ fn handle_connection(mut stream: TcpStream) {
 
     stream.read(&mut buffer).unwrap();
 
-    let response = "HTTP/1.1 200 OK\r\n\r\n";
+    let mut file = File::open("hello.html").unwrap();
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap(); // ファイルの中身を読み込む
+
+    let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", contents); // レスポンスの内容に追記する
 
     stream.write(response.as_bytes()).unwrap();
     stream.flush().unwrap(); // バイトが全て接続に書き込まれるまでプログラムを待機させる
