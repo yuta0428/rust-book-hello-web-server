@@ -9,7 +9,17 @@ pub struct ThreadPool {
     sender: mpsc::Sender<Job>,
 }
 
-struct Job;
+trait FnBox {
+    fn call_box(self: Box<Self>);
+}
+
+impl<F: FnOnce()> FnBox for F {
+    fn call_box(self: Box<F>) {
+        (*self)()  // Box<T>からクロージャをムーブし、クロージャを呼び出す
+    }
+}
+
+type Job = Box<FnBox + Send + 'static>;
 
 impl ThreadPool {
     /// 新しいThreadPoolを生成する。
@@ -58,7 +68,9 @@ impl ThreadPool {
             // 'static: ライフタイム境界。スレッドの実行にどれくらいかかるかわからないため
             F: FnOnce() + Send + 'static
     {
+        let job = Box::new(f);
 
+        self.sender.send(job).unwrap();
     }
 }
 
@@ -70,8 +82,21 @@ struct Worker {
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
-        let thread = thread::spawn(|| {
-            receiver;
+        let thread = thread::spawn(move || {
+            // Rustではunlockの代わりにライフタイムを使用している。
+            // ↓書き方だと1loopのスコープが終わるまでlockされるため並行にならない。
+            //  while let Ok(job) = receiver.lock().unwrap().recv() {
+            loop {
+                // ワーカーのスレッドで仕事を受け取り、実行する
+                let job = receiver.lock().unwrap().recv().unwrap(); // こっちはここでunlockされる
+
+                // ワーカー{}は仕事を得ました; 実行します
+                println!("Worker {} got a job; executing.", id);
+
+                // (*job)(); Box<FnOnce>は現在まだコンパイルエラー。
+                //  FnOnceクロージャを呼び出すためにはムーブするためにすることを許可しない。self: Box<Self>での所有権を奪うのはまだ未実装。
+                job.call_box();
+            }
         });
         // idとスレッドを保持するWorkerインスタンスを返す
         Worker {
