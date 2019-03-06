@@ -2,6 +2,8 @@ use std::io::prelude::*; // ストリームから読み書きさせてくれる�
 use std::net::TcpStream;
 use std::net::TcpListener;
 use std::fs::File;
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     // 入力ストリームをリッスンし、ストリームを受け付けた時にメッセージを出力する
@@ -26,8 +28,12 @@ fn handle_connection(mut stream: TcpStream) {
 
     // リクエストとマッチさせ、/ へのリクエストを他のリクエストとは異なる形で扱う
     let get = b"GET / HTTP/1.1\r\n";
+    let sleep = b"GET /sleep HTTP/1.1\r\n";
 
     let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
+    } else if buffer.starts_with(sleep) {
+        thread::sleep(Duration::from_secs(5)); // 5秒間スリープすることで遅いリクエストをシミュレーションする
         ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
     } else {
         ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "404.html")
