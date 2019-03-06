@@ -1,5 +1,9 @@
+use std::thread;
+
 // スレッドプール構造体
-pub struct ThreadPool;
+pub struct ThreadPool {
+    threads: Vec<thread::JoinHandle<()>>,
+}
 
 impl ThreadPool {
     /// 新しいThreadPoolを生成する。
@@ -20,7 +24,16 @@ impl ThreadPool {
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
 
-        ThreadPool
+        let mut threads = Vec::with_capacity(size); // sizeキャパシティで初期化
+
+        for _ in 0..size {
+            // スレッドを生成してベクタに格納する
+            // create some threads and store them in the vector
+        }
+
+        ThreadPool {
+            threads
+        }
     }
 
     // thread::spawnに変わるインターフェース
