@@ -27,28 +27,19 @@ fn handle_connection(mut stream: TcpStream) {
     // リクエストとマッチさせ、/ へのリクエストを他のリクエストとは異なる形で扱う
     let get = b"GET / HTTP/1.1\r\n";
 
-    if buffer.starts_with(get) {
-
-        let mut file = File::open("hello.html").unwrap();
-
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap(); // ファイルの中身を読み込む
-
-        let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", contents); // レスポンスの内容に追記する
-
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap(); // バイトが全て接続に書き込まれるまでプログラムを待機させる
+    let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
     } else {
-        // / 以外の何かが要求されたら、ステータスコード404とエラーページで応答する
-        let status_line = "HTTP/1.1 404 NOT FOUND\r\n\r\n";
-        let mut file = File::open("404.html").unwrap();
-        let mut contents = String::new();
+        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "404.html")
+    };
 
-        file.read_to_string(&mut contents).unwrap();
+    let mut file = File::open(filename).unwrap();
 
-        let response = format!("{}{}", status_line, contents);
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap(); // ファイルの中身を読み込む
 
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
+    let response = format!("{}{}", status_line, contents); // レスポンスの内容に追記する
+
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap(); // バイトが全て接続に書き込まれるまでプログラムを待機させる
 }
