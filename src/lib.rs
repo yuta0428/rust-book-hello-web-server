@@ -2,7 +2,7 @@ use std::thread;
 
 // スレッドプール構造体
 pub struct ThreadPool {
-    threads: Vec<thread::JoinHandle<()>>,
+    workers: Vec<Worker>, // スレッドを直接保持するのではなく、Workerインスタンスを保持する
 }
 
 impl ThreadPool {
@@ -24,15 +24,14 @@ impl ThreadPool {
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
 
-        let mut threads = Vec::with_capacity(size); // sizeキャパシティで初期化
+        let mut workers = Vec::with_capacity(size); // sizeキャパシティで初期化
 
-        for _ in 0..size {
-            // スレッドを生成してベクタに格納する
-            // create some threads and store them in the vector
+        for id in 0..size {
+            workers.push(Worker::new(id));
         }
 
         ThreadPool {
-            threads
+            workers
         }
     }
 
@@ -44,5 +43,23 @@ impl ThreadPool {
             F: FnOnce() + Send + 'static
     {
 
+    }
+}
+
+// idとJoinHandle<()>を保持するWorker構造体
+struct Worker {
+    id: usize,
+    thread: thread::JoinHandle<()>,
+}
+
+impl Worker {
+    fn new(id: usize) -> Worker {
+        let thread = thread::spawn(|| {});
+
+        // idとスレッドを保持するWorkerインスタンスを返す
+        Worker {
+            id,
+            thread,
+        }
     }
 }
