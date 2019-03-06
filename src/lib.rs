@@ -3,10 +3,15 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+enum Message {
+    NewJob(Job), // 実行すべきJobか
+    Terminate,   // ループから抜けて停止させるか
+}
+
 // スレッドプール構造体
 pub struct ThreadPool {
     workers: Vec<Worker>, // スレッドを直接保持するのではなく、Workerインスタンスを保持する
-    sender: mpsc::Sender<Job>,
+    sender: mpsc::Sender<Message>,
 }
 
 trait FnBox {
@@ -20,6 +25,7 @@ impl<F: FnOnce()> FnBox for F {
 }
 
 type Job = Box<FnBox + Send + 'static>;
+
 
 impl ThreadPool {
     /// 新しいThreadPoolを生成する。
@@ -70,13 +76,22 @@ impl ThreadPool {
     {
         let job = Box::new(f);
 
-        self.sender.send(job).unwrap();
+        self.sender.send(Message::NewJob(job)).unwrap();
     }
 }
 
 impl Drop for ThreadPool {
     // スレッドプールがスコープを抜けた時にスレッドをjoinさせる
     fn drop(&mut self) {
+        println!("Sending terminate message to all workers.");
+
+        for _ in &mut self.workers {
+            self.sender.send(Message::Terminate).unwrap();
+        }
+
+        // 全ワーカーを閉じます
+        println!("Shutting down all workers.");
+
         for worker in &mut self.workers {
             // ワーカー{}を終了します
             println!("Shutting down worker {}", worker.id);
@@ -95,21 +110,29 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
         let thread = thread::spawn(move || {
             // Rustではunlockの代わりにライフタイムを使用している。
             // ↓書き方だと1loopのスコープが終わるまでlockされるため並行にならない。
             //  while let Ok(job) = receiver.lock().unwrap().recv() {
             loop {
-                // ワーカーのスレッドで仕事を受け取り、実行する
-                let job = receiver.lock().unwrap().recv().unwrap(); // こっちはここでunlockされる
+                // ワーカーのスレッドでメッセージを受け取る
+                let message = receiver.lock().unwrap().recv().unwrap(); // こっちはここでunlockされる
 
-                // ワーカー{}は仕事を得ました; 実行します
-                println!("Worker {} got a job; executing.", id);
+                match message {
+                    Message::NewJob(job) => {
+                        // ワーカー{}は仕事を得ました; 実行します
+                        println!("Worker {} got a job; executing.", id);
 
-                // (*job)(); Box<FnOnce>は現在まだコンパイルエラー。
-                //  FnOnceクロージャを呼び出すためにはムーブするためにすることを許可しない。self: Box<Self>での所有権を奪うのはまだ未実装。
-                job.call_box();
+                        job.call_box();
+                    },
+                    Message::Terminate => {
+                        // ワーカー{}は停止するよう指示された
+                        println!("Worker {} was told to terminate.", id);
+
+                        break;
+                    },
+                }
             }
         });
         // idとスレッドを保持するWorkerインスタンスを返す

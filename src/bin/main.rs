@@ -16,7 +16,8 @@ fn main() {
     let pool = ThreadPool::new(4); // 設定可能なスレッド数で新しいスレッドプールを作成
 
     // 各TcpStreamを順番に処理する
-    for stream in listener.incoming() {
+    // for stream in listener.incoming() {
+    for stream in listener.incoming().take(2) { // 一旦2個で動作確認
         // 接続の試行に失敗したら終了。ex) OS側の接続数上限を超えた場合など
         let stream = stream.unwrap();
 
