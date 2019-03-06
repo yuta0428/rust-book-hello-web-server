@@ -74,10 +74,24 @@ impl ThreadPool {
     }
 }
 
+impl Drop for ThreadPool {
+    // スレッドプールがスコープを抜けた時にスレッドをjoinさせる
+    fn drop(&mut self) {
+        for worker in &mut self.workers {
+            // ワーカー{}を終了します
+            println!("Shutting down worker {}", worker.id);
+
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
+    }
+}
+
 // idとJoinHandle<()>を保持するWorker構造体
 struct Worker {
     id: usize,
-    thread: thread::JoinHandle<()>,
+    thread: Option<thread::JoinHandle<()>>, // 実行中のworkerがあるか確認するためOption<> None:なし
 }
 
 impl Worker {
@@ -101,7 +115,7 @@ impl Worker {
         // idとスレッドを保持するWorkerインスタンスを返す
         Worker {
             id,
-            thread,
+            thread: Some(thread),
         }
     }
 }
