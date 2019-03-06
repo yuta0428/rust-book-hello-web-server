@@ -16,7 +16,10 @@ fn main() {
         // 接続の試行に失敗したら終了。ex) OS側の接続数上限を超えた場合など
         let stream = stream.unwrap();
 
-        handle_connection(stream);
+        // 各ストリームに対して新しいスレッドを立ち上げる
+        thread::spawn(|| {
+            handle_connection(stream);
+        });
     }
 }
 
