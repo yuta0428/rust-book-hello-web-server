@@ -10,14 +10,15 @@ fn main() {
 
     // ポートに接続。失敗したらプログラムを停止する
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let pool = ThreadPool::new(4); // 設定可能なスレッド数で新しいスレッドプールを作成
 
     // 各TcpStreamを順番に処理する
     for stream in listener.incoming() {
         // 接続の試行に失敗したら終了。ex) OS側の接続数上限を超えた場合など
         let stream = stream.unwrap();
 
-        // 各ストリームに対して新しいスレッドを立ち上げる
-        thread::spawn(|| {
+        // 各ストリームに対してプール内のスレッドにで処理する
+        pool.execute(|| {
             handle_connection(stream);
         });
     }
