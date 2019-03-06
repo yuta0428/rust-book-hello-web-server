@@ -1,3 +1,6 @@
+extern crate hello;
+use hello::ThreadPool;
+
 use std::io::prelude::*; // ストリームから読み書きさせてくれるトレイト
 use std::net::TcpStream;
 use std::net::TcpListener;
